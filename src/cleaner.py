@@ -5,7 +5,6 @@ import os
 import numpy as np
 import pandas as pd
 import string
-import re
 
 import nltk
 from nltk.corpus import stopwords
@@ -28,6 +27,7 @@ def load_data(path, debug = 1):
 		print(ut.cyn("\nCollecting entries"))
 
 	dataf = spark.read.format("csv").option("header", "true").load(path)
+	
 	if debug:
 		print("Done!")
 
@@ -73,6 +73,7 @@ def main():
 		print(ut.cyn("\nStarting spark context (local)"))
 
 	sc = pyspark.SparkContext('local[*]')
+	print(sc.defaultParallelism)
 	sc.setLogLevel("ERROR")
 
 	if debug:
@@ -93,11 +94,11 @@ def main():
 		dataf.show(30, False)
 
 	if debug:
-		print(ut.cyn("\nSaving to \"clean_dataset.csv\""))
+		print(ut.cyn("\nSaving to \"data/clean_dataset.csv\""))
 	
 	dataf = dataf.rdd.map(lambda x:(' '.join(x[0]),x[1])).toDF(["tokens","date"])
 	dataf = dataf.filter(dataf[0] != "")
-	dataf.toPandas().to_csv('clean_dataset.csv')
+	dataf.toPandas().to_csv('./data/clean_dataset.csv')
 
 	if debug:
 		print("Terminating\n")
