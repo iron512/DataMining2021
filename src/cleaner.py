@@ -5,6 +5,8 @@ import os
 import numpy as np
 import pandas as pd
 import string
+import re
+import time
 
 import nltk
 from nltk.corpus import stopwords
@@ -12,7 +14,7 @@ from nltk.tokenize import word_tokenize
 
 import pyspark
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import expr, current_date
+from pyspark.sql.functions import col, size
 
 import utility as ut
 
@@ -36,13 +38,28 @@ def load_data(path, debug = 1):
 def extract(dataf, debug = 1):
 	if debug:
 		print(ut.cyn("\nExtracting entries"))
+		
+	if debug:
 		print("Total entries:",ut.red(dataf.count()))
-		dataf = dataf.filter(dataf.text.isNotNull())
-		print("Non null text:",ut.ylw(dataf.count()))
-		dataf = dataf.filter(dataf.date <= current_date())
-		print("Correct dates:",ut.grn(dataf.count()))
+	
+	dataf = dataf.select("text","date")
+	dataf = dataf.filter(dataf.text.isNotNull())
+	dataf = dataf.filter(dataf.date.isNotNull())
+	
+	if debug:
+		print("Not-null text and date entries:",ut.ylw(dataf.count()))
+	
+	#Split date in set of numbers and perform operations on it
+	dataf = dataf.rdd.map(lambda x:(x[0],x[1].split(" ")[0].split("-"))).toDF(["text","date"])
+	dataf = dataf.filter(size(col("date")) == 3)
+	dataf = dataf.filter(dataf.date[0] == 2020)
+	dataf = dataf.filter(dataf.date[1] >= 7)
+	dataf = dataf.filter(dataf.date[1] <= 8)
+	
+	if debug:
+		print("Correct and valid date entries:",ut.grn(dataf.count()))
 
-	return dataf.select("text","date")
+	return dataf
 
 def clean(dataf, debug = 1):
 	stop_words = set(stopwords.words('english'))
@@ -54,11 +71,12 @@ def clean(dataf, debug = 1):
 	#remove slash(/), dots(.), hashes(#), ats(@)  and the source (https://...)
 	rdd = rdd.map(lambda x:([w for w in x[0].lower().replace("covid19", "covid").replace("/","").replace("t.co","tco").replace(".", " ").replace("@", " ").replace("#", " ").split(" ") if True or not w.startswith("https")],x[1]))
 	#remove the stopwords and remove the time from the timestamps (i.e. keep the data)
-	rdd = rdd.map(lambda x:([w for w in x[0] if (not w.lower() in stop_words) and w.isalnum()],x[1].split(" ")[0]))
+	rdd = rdd.map(lambda x:([w for w in x[0] if (not w.lower() in stop_words) and w.isalnum()],x[1]))
 	rdd = rdd.map(lambda x:(list(set(x[0])),x[1]))
-
+	rdd = rdd.map(lambda x:(' '.join(x[0]),'-'.join(x[1])))
 
 	dataf = rdd.toDF(["tokens","date"])
+	dataf = dataf.filter(dataf.tokens != "")
 	return dataf
 
 def main():
@@ -73,8 +91,13 @@ def main():
 		print(ut.cyn("\nStarting spark context (local)"))
 
 	sc = pyspark.SparkContext('local[*]')
-	print(sc.defaultParallelism)
 	sc.setLogLevel("ERROR")
+	
+	if debug:
+		print(ut.cyn("\nSpark executor threads count:"),ut.cyn(sc.defaultParallelism),"\nStarting execution timer.")
+	
+	start_time = time.time()
+	
 
 	if debug:
 		print(ut.cyn("\nUpdating nl toolkit data"))
@@ -93,15 +116,13 @@ def main():
 	if debug > 1:
 		dataf.show(30, False)
 
-	if debug:
-		print(ut.cyn("\nSaving to \"data/clean_dataset.csv\""))
+	if  debug:
+		print(ut.cyn("\nSaving to \"data/clean_dataset.csv\""))		
 	
-	dataf = dataf.rdd.map(lambda x:(' '.join(x[0]),x[1])).toDF(["tokens","date"])
-	dataf = dataf.filter(dataf[0] != "")
 	dataf.toPandas().to_csv('./data/clean_dataset.csv')
 
 	if debug:
-		print("Terminating\n")
+		print("Terminating, execution time:",(time.time() - start_time), "\n")
 
 #MAIN
 if __name__ == '__main__':

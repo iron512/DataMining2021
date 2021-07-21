@@ -5,6 +5,7 @@ import os
 import numpy as np
 import pandas as pd
 import string
+import time
 
 import pyspark
 from pyspark.sql import SparkSession
@@ -27,23 +28,35 @@ def main():
 
 	sc = pyspark.SparkContext('local[*]')
 	sc.setLogLevel("ERROR")
+	
+	if debug:
+		print(ut.cyn("\nSpark executor threads count:"),ut.cyn(sc.defaultParallelism),"\nStarting execution timer.")
+	
+	start_time = time.time()
 
 	check, dataf = cleaner.load_data(file_name, debug)	
 
 	if not check:
 		sys.exit(2)
 
-	mapped = dataf.rdd.map(lambda x:(x[0], x[1].split(" "),x[2])).toDF(["index","tokens","date"])
+	if debug:
+		print(ut.cyn("\nRunning baseline algorithm"))
 
-	fpGrowth = FPGrowth(itemsCol="tokens", minSupport=0.005, minConfidence=0.005)
-	model = fpGrowth.fit(mapped)
+	dataf = dataf.rdd.map(lambda x:(x[0], x[1].split(" "),x[2])).toDF(["index","tokens","date"])
 
-	#model = model.freqItemsets.filter(size(col("items")) > 1)
-	model = model.associationRules.filter(size(col("antecedent")) > 1)
-	#model = model.sort(col("freq").desc())
-	model = model.sort(col("confidence").desc())
+	fpGrowth = FPGrowth(itemsCol="tokens", minSupport=0.006, minConfidence=0.005)
+	model = fpGrowth.fit(dataf)
+
+	model = model.freqItemsets.filter(size(col("items")) > 1)
+	model = model.sort(col("freq").desc())
 	
-	model.show(200, False)
+	if debug > 1:	
+		model.show(200, False)
+
+	model.toPandas().to_csv('./data/output/baseline.csv')
+
+	if debug:
+		print("Terminating, execution time:",(time.time() - start_time), "\n")
 
 #MAIN
 if __name__ == '__main__':
