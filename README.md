@@ -22,6 +22,18 @@ deactivate
 ```
 
 3) Run the code
+In the root folder of the project run:
 ```
-TBD
+python3 src/cleaner.py data/covid19_tweets 1
 ```
+This command will produce the clean dataset (which is already present)
+- To run the code:
+```
+python3 src/miner.py data/clean_dataset.csv 1 0
+```
+- To run the baseline:
+```
+python3 src/baseline.py data/clean_dataset.csv 1
+```
+
+All the results are stored in the `data/output/` folder.

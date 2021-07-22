@@ -52,6 +52,10 @@ def extract(dataf, debug = 1):
 	#Split date in set of numbers and perform operations on it
 	dataf = dataf.rdd.map(lambda x:(x[0],x[1].split(" ")[0].split("-"))).toDF(["text","date"])
 	dataf = dataf.filter(size(col("date")) == 3)
+
+	if debug:
+		print("Valid date entries:",ut.ylw(dataf.count()))
+
 	dataf = dataf.filter(dataf.date[0] == 2020)
 	dataf = dataf.filter(dataf.date[1] >= 7)
 	dataf = dataf.filter(dataf.date[1] <= 8)

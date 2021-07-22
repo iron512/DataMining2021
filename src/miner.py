@@ -65,7 +65,7 @@ def main():
 	deaths24h_array = []
 
 	coronacovid_array = []
-	reportedcases_array = []
+	newcases_array = []
 
 	while start_date <= end_date-datetime.timedelta(days=2):
 		print(start_date, start_date+datetime.timedelta(days=2))
@@ -96,9 +96,10 @@ def main():
 			coronacovid = coronacovid.filter(array_contains(col("items"),"covid"))
 			coronacovid = coronacovid.filter(size(col("items")) == 2)
 			
-			reportedcases = model.filter(array_contains(col("items"),"new"))
-			reportedcases = reportedcases.filter(array_contains(col("items"),"cases"))
-			reportedcases = reportedcases.filter(size(col("items")) == 2)
+			newcases = model.filter(array_contains(col("items"),"new"))
+			newcases = newcases.filter(array_contains(col("items"),"cases"))
+			newcases = newcases.filter(size(col("items")) == 2)
+			newcases.show(30,False)
 
 			if not len(wearmask.head(1)) == 0:
 				wearmask_array.append(wearmask.collect()[0][1])
@@ -120,10 +121,10 @@ def main():
 			else:
 				coronacovid_array.append(0)
 
-			if not len(reportedcases.head(1)) == 0:
-				reportedcases_array.append(reportedcases.collect()[0][1])
+			if not len(newcases.head(1)) == 0:
+				newcases_array.append(newcases.collect()[0][1])
 			else:
-				reportedcases_array.append(0)
+				newcases_array.append(0)
 
 		merged = merged.union(model)
 
@@ -135,7 +136,7 @@ def main():
 		graph_output.write("spread_help," + ", ".join([str(x) for x in spreadhelp_array])+"\n")
 		graph_output.write("deaths_24h," + ", ".join([str(x) for x in deaths24h_array])+"\n")
 		graph_output.write("corona_covid," + ", ".join([str(x) for x in coronacovid_array])+"\n")
-		graph_output.write("reported_cases," + ", ".join([str(x) for x in reportedcases_array])+"\n")
+		graph_output.write("new_cases," + ", ".join([str(x) for x in newcases_array])+"\n")
 		graph_output.close()
 
 	model = merged.groupBy('items').count()
